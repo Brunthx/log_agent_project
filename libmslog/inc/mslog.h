@@ -1,10 +1,6 @@
 #ifndef __MSLOG_H__
 #define __MSLOG_H__
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <pthread.h>
 #include <stdarg.h>
 #include <errno.h>
 #include <stdint.h>
