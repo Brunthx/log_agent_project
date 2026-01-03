@@ -226,7 +226,7 @@ static void agent_exit(void){
 }
 
 int main(int argc, char* argv[]){
-    if ( mslog_init_default("./log_agent.log", MSLOG_INFO, 1024* 1024 * 50, 5, MSLOG_FLUSH_BATCH) < 0 )
+    if ( mslog_init_default("./bin/log_agent.log", MSLOG_INFO, 1024* 1024 * 50, 5, MSLOG_FLUSH_BATCH) < 0 )
     {
         fprintf(stderr, "mslog init failed!\n");
         return -1;
