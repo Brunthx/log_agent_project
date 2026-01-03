@@ -17,8 +17,15 @@ MSLOG_OBJS		:= $(patsubst $(MSLOG_SRC_DIR)/%.c, $(MSLOG_SRC_DIR)/%.o, $(MSLOG_SR
 APP_SRC			:= $(APP_DIR)/log_agent.c
 APP_TARGET		:= $(BIN_OUT_DIR)/log_agent
 
+DAEMON_DEFINE	:= -DDAEMON_RUN=1
+
 all: dirs static_lib app
 	@echo -e "\033[32m 全部编译完成！静态库：$(STATIC_LIB) | 可执行程序：$(APP_TARGET)\033[0m"
+	@echo -e "\n log_agent（前台模式）全部编译完成！"
+
+daemon_all: dirs static_lib_daemon app
+	@echo -e "\033[32m 全部编译完成！静态库：$(STATIC_LIB) | 可执行程序：$(APP_TARGET)\033[0m"
+	@echo -e "\n log_agent（后台守护模式）全部编译完成！"
 
 dirs:
 	@mkdir -p $(LIB_OUT_DIR)
@@ -32,6 +39,15 @@ static_lib: $(MSLOG_OBJS)
 
 $(MSLOG_SRC_DIR)/%.o: $(MSLOG_SRC_DIR)/%.c
 	@$(CC) $(CFLAGS) -c $< -o $@ -I$(MSLOG_INC_DIR)
+
+static_lib_daemon: $(MSLOG_OBJS)
+	@echo -e "\033[33m 正在编译mslog所有模块（utils+thread+mem_pool+core）\033[0m"
+	@ar rcs $(STATIC_LIB) $(MSLOG_OBJS)
+	@rm -f $(MSLOG_OBJS)  # 清理临时.o文件
+	@echo -e "\033[32m mslog静态库编译完成：$(STATIC_LIB)\033[0m"
+
+$(MSLOG_SRC_DIR)/%.o: $(MSLOG_SRC_DIR)/%.c
+	@$(CC) $(CFLAGS) $(DAEMON_DEFINE) -c $< -o $@ -I$(MSLOG_INC_DIR)
 
 app:
 	@echo -e "\033[33m 正在编译log_agent并静态链接libmslog.a\033[0m"
@@ -49,15 +65,15 @@ run: all
 		echo " 运行失败：可执行程序 $(APP_TARGET) 不存在！"; \
 	fi
 
-run-daemon: all
+run-daemon: daemon_all
 	@echo -e "\n 开始运行 log_agent（后台守护模式）..."
 	@if [ -f $(APP_TARGET) ]; then \
 		mkdir -p $(BIN_OUT_DIR); \
-		cd $(BIN_OUT_DIR) && nohup ./log_agent & \
+		cd $(BIN_OUT_DIR) && nohup ./log_agent >> log_agent.log 2>&1 & \
 		sleep 1; \
 		REAL_PID=`ps -ef | grep $(notdir $(APP_TARGET)) | grep -v grep | awk '{print $$2}'`; \
 		echo " 运行成功！进程号：$$REAL_PID"; \
-		echo " 日志查看指令：tail -f $(BIN_OUT_DIR)/log_agent.log"; \
+		echo " 日志查看指令：tail -f -n 100 $(BIN_OUT_DIR)/log_agent.log"; \
 		echo " 停止进程指令：kill -9 $$REAL_PID"; \
 	else \
 		echo " 运行失败：可执行程序 $(APP_TARGET) 不存在！"; \
