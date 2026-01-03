@@ -52,12 +52,29 @@ run: all
 run-daemon: all
 	@echo -e "\n 开始运行 log_agent（后台守护模式）..."
 	@if [ -f $(APP_TARGET) ]; then \
-		cd $(BIN_OUT_DIR) && nohup ./log_agent > /dev/null 2>&1 & echo " 运行成功！进程号：$$!"; \
+		mkdir -p $(BIN_OUT_DIR); \
+		cd $(BIN_OUT_DIR) && nohup ./log_agent & \
+		sleep 1; \
+		REAL_PID=`ps -ef | grep $(notdir $(APP_TARGET)) | grep -v grep | awk '{print $$2}'`; \
+		echo " 运行成功！进程号：$$REAL_PID"; \
 		echo " 日志查看指令：tail -f $(BIN_OUT_DIR)/log_agent.log"; \
-		echo " 停止进程指令：kill -9 $$!"; \
+		echo " 停止进程指令：kill -9 $$REAL_PID"; \
 	else \
 		echo " 运行失败：可执行程序 $(APP_TARGET) 不存在！"; \
 	fi
+
+stop:
+	@echo -e "\n 停止 log_agent 进程..."
+	@REAL_PID=`ps -ef | grep $(notdir $(APP_TARGET)) | grep -v grep | awk '{print $$2}'`; \
+	if [ -n "$$REAL_PID" ]; then \
+		kill -9 $$REAL_PID && echo " 停止成功！已杀死进程号：$$REAL_PID"; \
+	else \
+		echo " 无运行中的 log_agent 进程"; \
+	fi
+
+log:
+	@echo -e "\n 实时查看 log_agent 日志（Ctrl+C退出）..."
+	@tail -f $(BIN_OUT_DIR)/log_agent.log
 
 clean:
 	@echo -e "\033[33m 正在清理所有编译产物\033[0m"
