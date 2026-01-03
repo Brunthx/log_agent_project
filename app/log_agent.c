@@ -16,7 +16,6 @@
 #define BATCH_SEND_THRESHOLD        ( 1024 )
 #define MONITOR_DIR                 ( "/var/log" )
 #define FILTER_KEYWORD              ( "ERROR" )
-#define DAEMON_RUN                  ( 1 )
 
 static int g_epoll_fd = -1;
 static int g_inotify_fd = -1;
@@ -165,7 +164,7 @@ static void agent_handle_file_event(int fd){
         }
     }
 }
-
+#ifdef DAEMON_RUN
 static void agent_daemonize(void){
     pid_t pid = fork();
     if ( pid < 0 )
@@ -190,6 +189,7 @@ static void agent_daemonize(void){
     open("/dev/null", O_WRONLY);
     open("/dev/null", O_WRONLY);
 }
+#endif
 
 static void agent_signal_handler(int sig){
     switch ( sig )
@@ -198,6 +198,10 @@ static void agent_signal_handler(int sig){
     case SIGTERM:
         MSLOG_INFO("AGENT", "recv stop signal, exit...");
         g_running = false;
+        if( g_epoll_fd >= 0 ) 
+        {
+            epoll_ctl(g_epoll_fd, EPOLL_CTL_DEL, g_inotify_fd, NULL);
+        }
         break;
     case SIGHUP:
         MSLOG_INFO("AGENT", "recv reload signal, reload config...");
@@ -226,7 +230,7 @@ static void agent_exit(void){
 }
 
 int main(int argc, char* argv[]){
-    if ( mslog_init_default("./log_agent.log", MSLOG_INFO, 1024* 1024 * 50, 5, MSLOG_FLUSH_BATCH) < 0 )
+    if ( mslog_init_default("./log_agent.log", MSLOG_INFO, 1024* 1024 * 50, 1, MSLOG_FLUSH_BATCH) < 0 )//1.MSLOG_FLUSH_BATCH 2.MSLOG_FLUSH_REAL_TIME
     {
         fprintf(stderr, "mslog init failed!\n");
         return -1;
@@ -237,11 +241,13 @@ int main(int argc, char* argv[]){
     signal(SIGTERM, agent_signal_handler);
     signal(SIGHUP, agent_signal_handler);
 
+#ifdef DAEMON_RUN
     if ( DAEMON_RUN )
     {
         agent_daemonize();
         MSLOG_INFO("AGENT", "Agent run as daemon mode");
     }
+#endif
 
     if (agent_init() < 0)
     {
@@ -268,6 +274,7 @@ int main(int argc, char* argv[]){
     MSLOG_INFO("AGENT", "start monitor dir: %s, filter keyword: %s", MONITOR_DIR, FILTER_KEYWORD);
 
     struct epoll_event events[MAX_EPOLL_EVENTS];
+    //int heartbeat_cnt = 0;
     while ( g_running )
     {
         int nfds = epoll_wait(g_epoll_fd, events, MAX_EPOLL_EVENTS, 1000);
@@ -287,6 +294,17 @@ int main(int argc, char* argv[]){
                 agent_handle_file_event(g_inotify_fd);
             }
         }
+
+        if ( nfds == 0 )
+        {
+            mslog_keep_alive();
+        }
+        //heartbeat_cnt++;
+        //if (heartbeat_cnt >= 1) 
+        //{
+        //    MSLOG_INFO("AGENT", "agent is running, monitor dir: %s [heartbeat]", MONITOR_DIR);
+        //    heartbeat_cnt = 0;
+        //}
     }
 
     agent_exit();
