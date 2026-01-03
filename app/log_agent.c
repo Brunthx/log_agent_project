@@ -75,7 +75,6 @@ static ssize_t agent_read_log(const char *file, char *buf, size_t len){
     int fd = open(file, O_RDONLY);
     if ( fd < 0)
     {
-        close(fd);
         return -1;
     }
     
@@ -124,7 +123,8 @@ static void agent_batch_send(const char *log_line){
     }
     pthread_mutex_lock(&g_batch_mutex);
 
-    strncat(g_batch_buf, log_line, strlen(log_line));
+    size_t free_size = ( BUF_SIZE * BATCH_SEND_THRESHOLD ) - strlen(g_batch_buf) - 1;
+    strncat(g_batch_buf, log_line, free_size);
     strncat(g_batch_buf, "\n", 1);
     g_batch_line_cnt++;
 
@@ -150,7 +150,14 @@ static void agent_handle_file_event(int fd){
     char file_path[256] = {0};
     if ( event->mask & IN_MODIFY && event->len > 0 )
     {
-        snprintf(file_path, sizeof(file_path), "%s/%s", MONITOR_DIR, event->name);
+        size_t base_len = strlen(MONITOR_DIR);
+        size_t name_max_len = sizeof(file_path) - base_len - 2;
+        if ( event->len > name_max_len )
+        {
+            MSLOG_WARN("AGENT", "filename too long, truncate: %s", event->name);
+        }
+        snprintf(file_path, sizeof(file_path), "%s/%.246s", MONITOR_DIR, event->name);
+        
         ssize_t read_len = agent_read_log(file_path, log_buf, ( sizeof(log_buf) - 1 ));
         if ( read_len > 0 && agent_filter_log(log_buf) )
         {
