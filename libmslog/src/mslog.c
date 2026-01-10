@@ -1,5 +1,5 @@
 #define _POSIX_C_SOURCE 200112L
-#include "mslog.h"
+#include "mslog_include.h"
 
 mslog_global_t g_mslog = {
 	.log_fp = NULL,
@@ -106,18 +106,18 @@ static void mslog_batch_flush(void){
 	g_mslog.batch_buf_used = 0;
 }
 
-void mslog_keep_alive(void) {
-    if (g_mslog.log_fp == NULL) 
-	{
-		return;
-	}
-    
-	static time_t last_alive = 0;
+void mslog_keep_alive(void){
+    if ( g_mslog.log_fp == NULL ) 
+    {
+        return;
+    }
+
+    static time_t last_alive = 0;
     time_t now = time(NULL);
     if ( now - last_alive < 60 )
-	{
-		return;
-	}
+    {
+        return;
+    }
     last_alive = now;
 
     fputc('\0', g_mslog.log_fp);
